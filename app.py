@@ -2,49 +2,88 @@ import streamlit as st
 import pandas as pd
 import joblib
 
+# =====================
+# Load artifacts
+# =====================
 model = joblib.load("credit_risk_model.pkl")
 scaler = joblib.load("scaler.pkl")
 encoders = joblib.load("label_encoders.pkl")
 
-st.set_page_config(page_title="Credit Risk App", page_icon="💳")
+# =====================
+# Page config
+# =====================
+st.set_page_config(
+    page_title="Credit Risk App",
+    page_icon="💳",
+    layout="centered"
+)
 
 st.title("💳 Credit Risk Classification App")
+st.markdown("Predict whether a customer is **Good** or **Bad** credit risk")
 
-st.subheader("Customer Information")
+st.divider()
 
-# numeric inputs فقط
-duration = st.number_input("Duration")
-credit_amount = st.number_input("Credit Amount")
-installment_commitment = st.number_input("Installment Commitment")
-residence_since = st.number_input("Residence Since")
-age = st.number_input("Age")
-existing_credits = st.number_input("Existing Credits")
-num_dependents = st.number_input("Number of Dependents")
+# =====================
+# CATEGORICAL INPUTS (SAFE - from encoder)
+# =====================
+st.subheader("Customer Profile")
 
-if st.button("Predict"):
+checking_status = st.selectbox("Checking Status", encoders["checking_status"].classes_)
+credit_history = st.selectbox("Credit History", encoders["credit_history"].classes_)
+purpose = st.selectbox("Purpose", encoders["purpose"].classes_)
+savings_status = st.selectbox("Savings Status", encoders["savings_status"].classes_)
+employment = st.selectbox("Employment", encoders["employment"].classes_)
+personal_status = st.selectbox("Personal Status", encoders["personal_status"].classes_)
+other_parties = st.selectbox("Other Parties", encoders["other_parties"].classes_)
+property_magnitude = st.selectbox("Property Magnitude", encoders["property_magnitude"].classes_)
+other_payment_plans = st.selectbox("Other Payment Plans", encoders["other_payment_plans"].classes_)
+housing = st.selectbox("Housing", encoders["housing"].classes_)
+job = st.selectbox("Job", encoders["job"].classes_)
+own_telephone = st.selectbox("Own Telephone", encoders["own_telephone"].classes_)
+foreign_worker = st.selectbox("Foreign Worker", encoders["foreign_worker"].classes_)
 
-    # 🔥 default values للـ categorical (حل مؤقت احترافي)
+st.divider()
+
+# =====================
+# NUMERIC INPUTS
+# =====================
+duration = st.number_input("Duration (months)", min_value=0)
+credit_amount = st.number_input("Credit Amount", min_value=0.0)
+installment_commitment = st.number_input("Installment Commitment", min_value=0.0)
+residence_since = st.number_input("Residence Since", min_value=0.0)
+age = st.number_input("Age", min_value=0)
+existing_credits = st.number_input("Existing Credits", min_value=0)
+num_dependents = st.number_input("Number of Dependents", min_value=0)
+
+st.divider()
+
+# =====================
+# PREDICT BUTTON
+# =====================
+if st.button("🔍 Predict Credit Risk"):
+
+    # Build input
     input_data = pd.DataFrame([[
-        "A14",          # checking_status
+        checking_status,
         duration,
-        "A34",          # credit_history
-        "A40",          # purpose
+        credit_history,
+        purpose,
         credit_amount,
-        "A65",          # savings_status
-        "A75",          # employment
+        savings_status,
+        employment,
         installment_commitment,
-        "A93",          # personal_status
-        "A101",         # other_parties
+        personal_status,
+        other_parties,
         residence_since,
-        "A121",         # property_magnitude
+        property_magnitude,
         age,
-        "A143",         # other_payment_plans
-        "A152",         # housing
+        other_payment_plans,
+        housing,
         existing_credits,
-        "A173",         # job
+        job,
         num_dependents,
-        "A192",         # own_telephone
-        "A201"          # foreign_worker
+        own_telephone,
+        foreign_worker
     ]], columns=[
         "checking_status",
         "duration",
@@ -68,21 +107,35 @@ if st.button("Predict"):
         "foreign_worker"
     ])
 
-    # encoding
+    # =====================
+    # ENCODING (SAFE)
+    # =====================
     for col in input_data.columns:
         if col in encoders:
             input_data[col] = encoders[col].transform(input_data[col])
 
-    # scaling
+    # =====================
+    # SCALING
+    # =====================
     input_scaled = scaler.transform(input_data)
 
-    # prediction
+    # =====================
+    # PREDICTION
+    # =====================
     pred = model.predict(input_scaled)[0]
     prob = model.predict_proba(input_scaled)[0][1]
 
-    if pred == 1:
-        st.success("Good Credit Risk 👍")
-    else:
-        st.error("Bad Credit Risk ⚠️")
+    # =====================
+    # OUTPUT UI
+    # =====================
+    st.subheader("Result")
 
-    st.metric("Confidence", f"{prob:.2%}")
+    if pred == 1:
+        st.success("✅ Good Credit Risk")
+    else:
+        st.error("❌ Bad Credit Risk")
+
+    st.metric("Confidence (Good Risk Probability)", f"{prob:.2%}")
+
+    # Progress bar (nice UI)
+    st.progress(float(prob))
